@@ -132,6 +132,10 @@ bind(SocketPid, Transport, Host, Port)
 
     gen_server:call(SocketPid, {bind, Transport, Host, Port}).
 
+%% @doc close socket
+-spec close(SocketPid::pid()) -> ok.
+close(SocketPid) ->
+  gen_server:call(SocketPid, close).
 
 %% @doc send a message for peers
 -spec send(SocketPid::pid(), Data::binary()) -> ok.

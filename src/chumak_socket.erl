@@ -8,7 +8,7 @@
 -module(chumak_socket).
 -behaviour(gen_server).
 
--record(state, {socket, 
+-record(state, {socket,
                 socket_state,
                 socket_options = #{}}).
 
@@ -51,6 +51,9 @@ handle_call({connect, Protocol, Host, Port, Resource}, _From, State) ->
 
 handle_call({accept, SocketPid}, _From, State) ->
     accept(SocketPid, State);
+
+handle_call(close, _From, State) ->
+    {stop, normal, ok, State};
 
 handle_call({send, Data}, From, State) ->
     send(Data, From, State);
@@ -127,17 +130,17 @@ terminate(_Reason, _State) ->
 store({reply, M, S}, State) -> {reply, M, State#state{socket_state=S}};
 store({noreply, S}, State) -> {noreply, State#state{socket_state=S}}.
 
-set_option(Name, Value, #state{socket_options = Options} = State) 
+set_option(Name, Value, #state{socket_options = Options} = State)
   when Name =:= curve_server, is_boolean(Value);
        Name =:= curve_publickey, is_binary(Value);
        Name =:= curve_secretkey, is_binary(Value);
        Name =:= curve_serverkey, is_binary(Value) ->
     {reply, ok, State#state{socket_options = Options#{Name => Value}}};
-set_option(Name, Value, #state{socket_options = Options} = State) 
+set_option(Name, Value, #state{socket_options = Options} = State)
   when Name =:= curve_clientkeys ->
     case validate_keys(Value) of
         {ok, BinaryKeys} ->
-            {reply, ok, 
+            {reply, ok,
              State#state{socket_options = Options#{Name => BinaryKeys}}};
         {error, _Error} ->
             {reply, {error, einval}, State}
@@ -180,7 +183,7 @@ send_multipart(Multipart, From, #state{socket=S, socket_state=T}=State) ->
     store(Reply, State).
 
 recv_multipart(From, #state{socket=S, socket_state=T}=State) ->
-    Reply = S:recv_multipart(T, From), 
+    Reply = S:recv_multipart(T, From),
     store(Reply, State).
 
 get_flags(State) ->
@@ -189,7 +192,7 @@ get_flags(State) ->
 peer_ready(From, Identity, #state{socket=S, socket_state=T}=State) ->
     Reply = S:peer_ready(T, From, Identity),
     store(Reply, State).
- 
+
 pattern_support(State, Function, Args) ->
     pattern_support(State, Function, Args, warn).
 
@@ -225,7 +228,7 @@ exit_peer(PeerPid, #state{socket=S,  socket_state=T}=State) ->
     Reply = S:peer_disconected(T, PeerPid),
     store(Reply, State).
 
-peer_flags(#state{socket=Socket, 
+peer_flags(#state{socket=Socket,
                   socket_state=SocketState,
                   socket_options=SocketOptions}) ->
     {SocketType, PeerOpts} = Socket:peer_flags(SocketState),
