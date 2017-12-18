@@ -92,15 +92,10 @@ queue_ready(#chumak_pull{pending_recv=nil, pending_recv_multipart=nil}=State, _I
 
 %% when pending recv
 queue_ready(#chumak_pull{pending_recv={from, PendingRecv}, pending_recv_multipart=nil}=State, _Identity, PeerPid) ->
-    case is_process_alive(PeerPid) of
-      true ->
-        {out, Multipart} = chumak_peer:incoming_queue_out(PeerPid),
-        Msg = binary:list_to_bin(Multipart),
-        gen_server:reply(PendingRecv, {ok, Msg}),
-        {noreply, State#chumak_pull{pending_recv=nil}};
-      false ->
-        {noreply, State#chumak_pull{pending_recv=nil}}
-    end;
+    {out, Multipart} = chumak_peer:incoming_queue_out(PeerPid),
+    Msg = binary:list_to_bin(Multipart),
+    gen_server:reply(PendingRecv, {ok, Msg}),
+    {noreply, State#chumak_pull{pending_recv=nil}};
 
 %% when pending recv_multipart
 queue_ready(#chumak_pull{pending_recv=nil, pending_recv_multipart={from, PendingRecv}}=State, _Identity, PeerPid) ->
