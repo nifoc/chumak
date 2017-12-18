@@ -12,7 +12,7 @@
 
 -export([start/2, stop/1]).
 -export([socket/1, socket/2, connect/4, connect/5, bind/4, close/1,
-         send/2, recv/1, send_multipart/2, recv_multipart/1,
+         send/2, send/3, recv/1, recv/2, send_multipart/2, recv_multipart/1,
          set_socket_option/3,
          cancel/2, subscribe/2,
          resource/0, attach_resource/3,
