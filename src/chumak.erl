@@ -139,11 +139,11 @@ close(SocketPid) ->
   gen_server:call(SocketPid, close).
 
 %% @doc send a message for peers
--spec send(SocketPid::pid(), Data::binary()) -> ok.
+-spec send(SocketPid::pid(), Data::binary()) -> ok | {error, Reason::atom()}.
 send(SocketPid, Data) ->
   send(SocketPid, Data, infinity).
 
--spec send(SocketPid::pid(), Data::binary(), Timeout::(pos_integer() | infinity)) -> ok.
+-spec send(SocketPid::pid(), Data::binary(), Timeout::(pos_integer() | infinity)) -> ok | {error, Reason::atom()}.
 send(SocketPid, Data, Timeout)
   when is_pid(SocketPid),
        is_binary(Data) ->
