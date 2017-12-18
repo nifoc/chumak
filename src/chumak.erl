@@ -135,16 +135,20 @@ bind(SocketPid, Transport, Host, Port)
 
 %% @doc send a message for peers
 -spec send(SocketPid::pid(), Data::binary()) -> ok.
-send(SocketPid, Data)
+send(SocketPid, Data) ->
+  send(SocketPid, Data, infinity).
+
+-spec send(SocketPid::pid(), Data::binary(), Timeout::(pos_integer() | infinity)) -> ok.
+send(SocketPid, Data, Timeout)
   when is_pid(SocketPid),
        is_binary(Data) ->
 
-    gen_server:call(SocketPid, {send, Data}, infinity);
+    gen_server:call(SocketPid, {send, Data}, Timeout);
 
-send(SocketPid, Data)
+send(SocketPid, Data, Timeout)
   when is_pid(SocketPid),
        is_list(Data) ->
-    send(SocketPid, list_to_binary(Data)).
+    send(SocketPid, list_to_binary(Data), Timeout).
 
 %% @doc send a message for peers using a list of binaries
 -spec send_multipart(SocketPid::pid(), [Data::binary()]) -> ok.
@@ -156,9 +160,13 @@ send_multipart(SocketPid, Multipart)
 
 %% @doc recv a message for peers
 -spec recv(SocketPid::pid()) -> {ok, Data::binary()} | {error, Reason::atom()}.
-recv(SocketPid)
+recv(SocketPid) ->
+  recv(SocketPid, infinity).
+
+-spec recv(SocketPid::pid(), Timeout::(pos_integer() | infinity)) -> {ok, Data::binary()} | {error, Reason::atom()}.
+recv(SocketPid, Timeout)
   when is_pid(SocketPid) ->
-    gen_server:call(SocketPid, recv, infinity).
+    gen_server:call(SocketPid, recv, Timeout).
 
 
 %% @doc recv a message for peers by a list of binaries
