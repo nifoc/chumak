@@ -29,6 +29,7 @@ start_socket(Type, Identity) ->
     ProcessId = list_to_atom(string:concat(?CHILD_PROCESS_PREFIX, Identity)),
     supervisor:start_child(?MODULE, #{
                              id=>ProcessId,
+                             restart=>transient,
                              start=>{?SOCKET, start_link, [Type, Identity]}
                             }).
 
