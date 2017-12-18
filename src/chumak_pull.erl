@@ -81,9 +81,14 @@ peer_recv_message(State, _Message, _From) ->
     {noreply, State}.
 
 queue_ready(#chumak_pull{pending_recv=nil, pending_recv_multipart=nil}=State, _Identity, PeerPid) ->
-    {out, Multipart} = chumak_peer:incoming_queue_out(PeerPid),
-    NewRecvQueue = queue:in(Multipart, State#chumak_pull.recv_queue),
-    {noreply, State#chumak_pull{recv_queue=NewRecvQueue}};
+    case is_process_alive(PeerPid) of
+      true ->
+        {out, Multipart} = chumak_peer:incoming_queue_out(PeerPid),
+        NewRecvQueue = queue:in(Multipart, State#chumak_pull.recv_queue),
+        {noreply, State#chumak_pull{recv_queue=NewRecvQueue}};
+      false ->
+        {noreply, State}
+    end;
 
 %% when pending recv
 queue_ready(#chumak_pull{pending_recv={from, PendingRecv}, pending_recv_multipart=nil}=State, _Identity, PeerPid) ->
