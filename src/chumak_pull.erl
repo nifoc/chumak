@@ -53,7 +53,7 @@ recv(#chumak_pull{pending_recv=nil, pending_recv_multipart=nil}=State, From) ->
     do_recv(State, From);
 
 recv(State, {NewFromPid, _}=From) ->
-    {SavedFromPid, _} = State#chumak_pull.pending_recv,
+    {from, {SavedFromPid, _}} = State#chumak_pull.pending_recv,
     io:fwrite("~p~n",[State]),
     io:fwrite("~p~n",[From]),
     io:fwrite("~p ~p~n",[NewFromPid, SavedFromPid]),
