@@ -52,13 +52,11 @@ send(State, Data, From) ->
 recv(#chumak_pull{pending_recv=nil, pending_recv_multipart=nil}=State, From) ->
     do_recv(State, From);
 
-recv(#chumak_pull{pending_recv={from, {SavedFromPid, _FromTag}}, pending_recv_multipart=nil}=State, {NewFromPid, _FromTag}=From)
-    when SavedFromPid =:= NewFromPid ->
-    do_recv(State, From);
-
-recv(State, From) ->
+recv(State, {NewFromPid, _}=From) ->
+    {SavedFromPid, _} = State#chumak_pull.pending_recv,
     io:fwrite("~p~n",[State]),
     io:fwrite("~p~n",[From]),
+    io:fwrite("~p ~p~n",[NewFromPid, SavedFromPid]),
     {reply, {error, already_pending_recv}, State}.
 
 send_multipart(State, _Multipart, _From) ->
