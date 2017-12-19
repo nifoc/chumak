@@ -50,13 +50,10 @@ send(State, Data, From) ->
     send_multipart(State, [Data], From).
 
 recv(#chumak_pull{pending_recv=nil, pending_recv_multipart=nil}=State, From) ->
-    case queue:out(State#chumak_pull.recv_queue) of
-        {{value, Multipart}, NewRecvQueue} ->
-            Msg = binary:list_to_bin(Multipart),
-            {reply, {ok, Msg}, State#chumak_pull{recv_queue=NewRecvQueue}};
-        {empty, _RecvQueue} ->
-            {noreply, State#chumak_pull{pending_recv={from, From}}}
-    end;
+    do_recv(State, From);
+
+recv(#chumak_pull{pending_recv={from, From}, pending_recv_multipart=nil}=State, From) ->
+    do_recv(State, From);
 
 recv(State, _From) ->
     {reply, {error, already_pending_recv}, State}.
@@ -105,3 +102,14 @@ queue_ready(#chumak_pull{pending_recv=nil, pending_recv_multipart={from, Pending
 
 peer_disconected(State, _PeerPid) ->
     {noreply, State}.
+
+%% helper
+
+do_recv(#chumak_pull{pending_recv={from, From}, pending_recv_multipart=nil}=State, From) ->
+  case queue:out(State#chumak_pull.recv_queue) of
+      {{value, Multipart}, NewRecvQueue} ->
+          Msg = binary:list_to_bin(Multipart),
+          {reply, {ok, Msg}, State#chumak_pull{recv_queue=NewRecvQueue}};
+      {empty, _RecvQueue} ->
+          {noreply, State#chumak_pull{pending_recv={from, From}}}
+  end.
