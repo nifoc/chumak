@@ -49,24 +49,28 @@ peer_ready(State, _PeerPid, _Identity) ->
 send(State, Data, From) ->
     send_multipart(State, [Data], From).
 
-recv(#chumak_pull{pending_recv=nil, pending_recv_multipart=nil}=State, From) ->
-    do_recv(State, From);
+recv(#chumak_pull{pending_recv=nil, pending_recv_multipart=nil}=State, _From) ->
+    case queue:out(State#chumak_pull.recv_queue) of
+        {{value, Multipart}, NewRecvQueue} ->
+            Msg = binary:list_to_bin(Multipart),
+            {reply, {ok, Msg}, State#chumak_pull{recv_queue=NewRecvQueue}};
+        {empty, _RecvQueue} ->
+            {reply, ok, State#chumak_pull{pending_recv=nil}}
+    end;
 
-recv(State, {NewFromPid, _}=From) ->
-    {from, {SavedFromPid, _}} = State#chumak_pull.pending_recv,
-    if
-        NewFromPid == SavedFromPid -> do_recv(State, From);
-        true -> {reply, {error, already_pending_recv}, State}
-    end.
+recv(State, _From) ->
+    {reply, {error, already_pending_recv}, State}.
 
 send_multipart(State, _Multipart, _From) ->
     {reply, {error, not_use}, State}.
 
 recv_multipart(#chumak_pull{pending_recv=nil, pending_recv_multipart=nil}=State, From) ->
-    do_recv_multipart(State, From);
-
-recv_multipart(#chumak_pull{pending_recv=nil, pending_recv_multipart={from, {FromPid, _FromTag}}}=State, {FromPid, _FromTag}=From) ->
-    do_recv_multipart(State, From);
+    case queue:out(State#chumak_pull.recv_queue) of
+        {{value, Multipart}, NewRecvQueue} ->
+            {reply, {ok, Multipart}, State#chumak_pull{recv_queue=NewRecvQueue}};
+        {empty, _RecvQueue} ->
+            {noreply, State#chumak_pull{pending_recv_multipart={from, From}}}
+    end;
 
 recv_multipart(State, _From) ->
     {reply, {error, already_pending_recv}, State}.
@@ -100,23 +104,3 @@ queue_ready(#chumak_pull{pending_recv=nil, pending_recv_multipart={from, Pending
 
 peer_disconected(State, _PeerPid) ->
     {noreply, State}.
-
-%% helper
-
-do_recv(State, From) ->
-  case queue:out(State#chumak_pull.recv_queue) of
-      {{value, Multipart}, NewRecvQueue} ->
-          Msg = binary:list_to_bin(Multipart),
-          {reply, {ok, Msg}, State#chumak_pull{recv_queue=NewRecvQueue}};
-      {empty, _RecvQueue} ->
-          {noreply, State#chumak_pull{pending_recv={from, From}}}
-  end.
-
-do_recv_multipart(State, From) ->
-  case queue:out(State#chumak_pull.recv_queue) of
-      {{value, Multipart}, NewRecvQueue} ->
-          {reply, {ok, Multipart}, State#chumak_pull{recv_queue=NewRecvQueue}};
-
-      {empty, _RecvQueue} ->
-          {noreply, State#chumak_pull{pending_recv_multipart={from, From}}}
-  end.
