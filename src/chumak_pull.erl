@@ -56,22 +56,19 @@ recv(#chumak_pull{pending_recv={from, From}, pending_recv_multipart=nil}=State, 
     do_recv(State, From);
 
 recv(State, _From) ->
-    {reply, {error, already_pending_recv}, State}.
+    {reply, {error, already_pending_recv_normal}, State}.
 
 send_multipart(State, _Multipart, _From) ->
     {reply, {error, not_use}, State}.
 
 recv_multipart(#chumak_pull{pending_recv=nil, pending_recv_multipart=nil}=State, From) ->
-    case queue:out(State#chumak_pull.recv_queue) of
-        {{value, Multipart}, NewRecvQueue} ->
-            {reply, {ok, Multipart}, State#chumak_pull{recv_queue=NewRecvQueue}};
+    do_recv_multipart(State, From);
 
-        {empty, _RecvQueue} ->
-            {noreply, State#chumak_pull{pending_recv_multipart={from, From}}}
-    end;
+recv_multipart(#chumak_pull{pending_recv=nil, pending_recv_multipart={from, From}}=State, From) ->
+    do_recv_multipart(State, From);
 
 recv_multipart(State, _From) ->
-    {reply, {error, already_pending_recv}, State}.
+    {reply, {error, already_pending_recv_multipart}, State}.
 
 peer_recv_message(State, _Message, _From) ->
     %% This function will never called, because use incoming_queue property
@@ -112,4 +109,13 @@ do_recv(State, From) ->
           {reply, {ok, Msg}, State#chumak_pull{recv_queue=NewRecvQueue}};
       {empty, _RecvQueue} ->
           {noreply, State#chumak_pull{pending_recv={from, From}}}
+  end.
+
+do_recv_multipart(State, From) ->
+  case queue:out(State#chumak_pull.recv_queue) of
+      {{value, Multipart}, NewRecvQueue} ->
+          {reply, {ok, Multipart}, State#chumak_pull{recv_queue=NewRecvQueue}};
+
+      {empty, _RecvQueue} ->
+          {noreply, State#chumak_pull{pending_recv_multipart={from, From}}}
   end.
