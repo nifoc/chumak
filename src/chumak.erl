@@ -164,11 +164,11 @@ send_multipart(SocketPid, Multipart)
     gen_server:call(SocketPid, {send_multipart, Multipart}, infinity).
 
 %% @doc recv a message for peers
--spec recv(SocketPid::pid()) -> {ok, Data::binary()} | {error, Reason::atom()}.
+-spec recv(SocketPid::pid()) -> ok | {ok, Data::binary()} | {error, Reason::atom()}.
 recv(SocketPid) ->
   recv(SocketPid, infinity).
 
--spec recv(SocketPid::pid(), Timeout::(pos_integer() | infinity)) -> {ok, Data::binary()} | {error, Reason::atom()}.
+-spec recv(SocketPid::pid(), Timeout::(pos_integer() | infinity)) -> ok | {ok, Data::binary()} | {error, Reason::atom()}.
 recv(SocketPid, Timeout)
   when is_pid(SocketPid) ->
     gen_server:call(SocketPid, recv, Timeout).
