@@ -52,7 +52,8 @@ send(State, Data, From) ->
 recv(#chumak_pull{pending_recv=nil, pending_recv_multipart=nil}=State, From) ->
     do_recv(State, From);
 
-recv(#chumak_pull{pending_recv={from, {FromPid, _FromTag}}, pending_recv_multipart=nil}=State, {FromPid, _FromTag}=From) ->
+recv(#chumak_pull{pending_recv={from, {SavedFromPid, _FromTag}}, pending_recv_multipart=nil}=State, {NewFromPid, _FromTag}=From)
+    when SavedFromPid =:= NewFromPid ->
     do_recv(State, From);
 
 recv(State, From) ->
