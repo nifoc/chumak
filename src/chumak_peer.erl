@@ -27,7 +27,7 @@
                     | {curve_secretkey, binary()}
                     | {curve_serverkey, binary()}.
 
--type handshake_data() :: {error, term()} | 
+-type handshake_data() :: {error, term()} |
                           {ready, map()}.
 -record(state, {
           step=waiting_ready  :: peer_step(),
@@ -151,12 +151,12 @@ handle_call(incoming_queue_out, _From, #state{incoming_queue=IncomingQueue}=Stat
 
 
 %% @hidden
-handle_cast({send, Multipart, Client}, #state{socket=Socket, 
+handle_cast({send, Multipart, Client}, #state{socket=Socket,
                                               mechanism = Mechanism,
                                               security_data = Security_data,
                                               step=ready}=State) ->
-    {Data, NewSecurityData} 
-       = chumak_protocol:encode_message_multipart(Multipart, Mechanism, 
+    {Data, NewSecurityData}
+       = chumak_protocol:encode_message_multipart(Multipart, Mechanism,
                                                   Security_data),
     case gen_tcp:send(Socket, Data) of
         ok ->
@@ -168,9 +168,9 @@ handle_cast({send, Multipart, Client}, #state{socket=Socket,
 handle_cast({send, Multipart}, #state{mechanism = Mechanism,
                                       security_data = SecurityData,
                                       step=ready}=State) ->
-    {Data, NewSecurityData} = 
-        chumak_protocol:encode_message_multipart(Multipart, 
-                                                 Mechanism, 
+    {Data, NewSecurityData} =
+        chumak_protocol:encode_message_multipart(Multipart,
+                                                 Mechanism,
                                                  SecurityData),
     send_data(Data, State#state{security_data = NewSecurityData});
 
@@ -250,7 +250,10 @@ send_data(Data, #state{socket = Socket} = State) ->
     end,
     {noreply, State}.
 
-try_connect(#state{host=Host, port=Port, parent_pid=ParentPid, 
+try_connect(State) ->
+  try_connect(1, State).
+
+try_connect(Tries, #state{host=Host, port=Port, parent_pid=ParentPid,
                    socket=OldSocketPid, security_data = CurveOptions}=State) ->
     case gen_tcp:connect(Host, Port, ?SOCKET_OPTS([])) of
         {ok, SocketPid} ->
@@ -274,15 +277,21 @@ try_connect(#state{host=Host, port=Port, parent_pid=ParentPid,
                                        connection_error,
                                        {error, Reason}
                                       ]),
-            timer:sleep(?RECONNECT_TIMEOUT),
-            try_connect(State)
+
+            if
+                Tries =:= 5 ->
+                    {stop, {shutdown, Reason}, State};
+                true ->
+                    timer:sleep(?RECONNECT_TIMEOUT),
+                    try_connect(Tries + 1, State)
+            end
     end.
 
 %% the result must be either:
 %% {noreply, NewState#state{decoder=NewDecoder, step=ready}};
 %% or:
 %% {stop, Error, State}
-negotiate_greetings(#state{socket=Socket, 
+negotiate_greetings(#state{socket=Socket,
                            mechanism = Mechanism,
                            as_server=AsServer}=State) ->
     try
@@ -304,7 +313,7 @@ verify_mechanism(#state{mechanism = Mechanism} = State, Decoder) ->
     case chumak_protocol:decoder_mechanism(Decoder) of
         Mechanism ->
             verify_role(State, Decoder);
-        _ -> 
+        _ ->
             MismatchError = {server_error, "Security mechanism mismatch"},
             error_logger:error_report([
                                        negotiate_greetings_error,
@@ -332,7 +341,7 @@ verify_role(#state{mechanism = curve,
 verify_role(State, Decoder) ->
     do_handshake(State, Decoder).
 
-do_handshake(#state{socket = Socket} = State, Decoder) -> 
+do_handshake(#state{socket = Socket} = State, Decoder) ->
     PeerVersion = chumak_protocol:decoder_version(Decoder),
     case handshake(State#state{decoder = Decoder,
                                peer_version = PeerVersion}) of
@@ -345,7 +354,7 @@ do_handshake(#state{socket = Socket} = State, Decoder) ->
             {stop, Err, NewState}
     end.
 
--spec handshake(State::state()) -> 
+-spec handshake(State::state()) ->
           {ok, state()} | {error, Reason::string(), state()}.
 %% As described in https://rfc.zeromq.org/spec:26/CURVEZMQ/
 handshake(#state{mechanism = curve, socket = Socket,
@@ -353,8 +362,8 @@ handshake(#state{mechanism = curve, socket = Socket,
                  identity = Identity, type = SocketType,
                  resource = Resource} = State) ->
     %% The handshake provides:
-    %% - security data: 
-    %%   - curve_data() in case of curve security, 
+    %% - security data:
+    %%   - curve_data() in case of curve security,
     %%   - #{} in case of null security
     %% - a "resource" if multi_socket_type == true
     %% - socket type
@@ -363,14 +372,14 @@ handshake(#state{mechanism = curve, socket = Socket,
     Metadata = [{"Socket-Type", SocketTypeBin},
                 {"Identity", Identity},
                 {"Resource", Resource}],
-    {NewDecoder, HandshakeResponse}  = 
+    {NewDecoder, HandshakeResponse}  =
         chumak_curve:security_handshake(Socket, Decoder, AsServer, Metadata),
     handle_handshake_data(State#state{decoder = NewDecoder}, HandshakeResponse);
-    
-handshake(#state{mechanism=null, socket = Socket, 
+
+handshake(#state{mechanism=null, socket = Socket,
                  decoder = Decoder, conn_side = Side} = State) ->
-    %% "Note that to avoid deadlocks, each peer MUST send its READY command 
-    %% before attempting to receive a READY from the other peer. In the NULL 
+    %% "Note that to avoid deadlocks, each peer MUST send its READY command
+    %% before attempting to receive a READY from the other peer. In the NULL
     %% mechanism, peers are symmetric."
     %% But later on in the example this appears to be contradicted. Client
     %% must first send ready.
@@ -383,7 +392,7 @@ handshake(#state{mechanism=null, socket = Socket,
     {ok, IncomingReadyFrame} = recv_ready_command(Socket),
     {ok, NewDecoder, [ReadyCommand]} = chumak_protocol:decode(Decoder,
                                                               IncomingReadyFrame),
-    case handle_handshake_data(State#state{decoder=NewDecoder}, 
+    case handle_handshake_data(State#state{decoder=NewDecoder},
                                map_ready_command(ReadyCommand)) of
         {ok, ReadyState} when Side =:= server ->
             ok = send_ready_command(ReadyState),
@@ -392,17 +401,17 @@ handshake(#state{mechanism=null, socket = Socket,
             Other
     end.
 
-send_ready_command(#state{socket = Socket, resource = Resource, 
+send_ready_command(#state{socket = Socket, resource = Resource,
                           type = Type, identity = Identity}) ->
-    ReadyCommand = chumak_command:encode_ready(Type, 
-                                               Identity, 
+    ReadyCommand = chumak_command:encode_ready(Type,
+                                               Identity,
                                                Resource, #{}),
     send_command_to_socket(Socket, ReadyCommand).
 
 map_ready_command(ReadyCommand) ->
     case chumak_command:command_name(ReadyCommand) of
         ready ->
-            {ready, 
+            {ready,
              #{security_data => #{},
                "resource" => chumak_command:ready_resource(ReadyCommand),
                "socket-type" => chumak_command:ready_socket_type(ReadyCommand),
@@ -413,20 +422,20 @@ map_ready_command(ReadyCommand) ->
             {error, {invalid_command_before_ready, Name}}
     end.
 
--spec handle_handshake_data(state(), handshake_data()) -> 
+-spec handle_handshake_data(state(), handshake_data()) ->
           {ok, state()} | {error, Reason::term(), state()}.
-handle_handshake_data(State, 
+handle_handshake_data(State,
                       {error, {invalid_command_before_ready, _Name}} = Error) ->
     {error, Error, State};
 handle_handshake_data(State, {error, Reason}) ->
     error_logger:error_report([server_error, {msg, Reason}]),
     {error, {shutdown, {server_error, Reason}}, State};
 handle_handshake_data(#state{multi_socket_type=true,
-                             parent_pid = ResourceRouterPid} = State, 
+                             parent_pid = ResourceRouterPid} = State,
                       {ready, #{"resource" := Resource} = ReadyData}) ->
     case gen_server:call(ResourceRouterPid, {route_resource, Resource}) of
         {change_socket, NewSocket, {SocketType, Opts}} ->
-            NewState = apply_opts(State#state{parent_pid=NewSocket, 
+            NewState = apply_opts(State#state{parent_pid=NewSocket,
                                               type=SocketType}, Opts),
             unlink(ResourceRouterPid),
             link(NewSocket),
@@ -438,11 +447,11 @@ handle_handshake_data(#state{multi_socket_type=true,
 handle_handshake_data(State, {ready, ReadyData}) ->
     handle_ready_response2(State, ReadyData).
 
-handle_ready_response2(#state{socket=Socket, 
-                              type = SocketType} = State, 
+handle_ready_response2(#state{socket=Socket,
+                              type = SocketType} = State,
                        #{"socket-type" := PeerSocketType} = ReadyData) ->
     case validate_peer_socket_type(State, ReadyData) of
-        {ok, #state{parent_pid = ParentPid, 
+        {ok, #state{parent_pid = ParentPid,
                     peer_identity = PeerIdentity} = NewState} ->
             gen_server:cast(ParentPid, {peer_ready, self(), PeerIdentity}),
             {ok, NewState};
@@ -461,7 +470,7 @@ validate_peer_socket_type(#state{type=SocketType} = State,
     PatternModule = chumak_pattern:module(SocketType),
     case PatternModule:valid_peer_type(PeerSocketType) of
         valid ->
-            {ok, State#state{step=ready, 
+            {ok, State#state{step=ready,
                              security_data = SecurityData,
                              peer_identity = Identity}};
         invalid ->
@@ -509,15 +518,15 @@ apply_opts(State, [{curve_server, false}| Opts]) ->
     apply_opts(State#state{as_server=false,
                            mechanism=null}, Opts);
 apply_opts(State = #state{security_data = CurveOptions}, [{KeyType, Key}| Opts])
-    when KeyType == curve_secretkey; 
+    when KeyType == curve_secretkey;
          KeyType == curve_publickey;
          KeyType == curve_clientkeys ->
-    apply_opts(State#state{security_data = CurveOptions#{KeyType => Key}}, 
+    apply_opts(State#state{security_data = CurveOptions#{KeyType => Key}},
                Opts);
-apply_opts(State = #state{security_data = CurveOptions}, 
+apply_opts(State = #state{security_data = CurveOptions},
            [{curve_serverkey, Key}| Opts]) ->
     apply_opts(State#state{mechanism=curve,
-                           security_data = CurveOptions#{curve_serverkey => Key}}, 
+                           security_data = CurveOptions#{curve_serverkey => Key}},
                Opts).
 
 recv_ready_command(Socket) ->
