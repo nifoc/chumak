@@ -105,7 +105,7 @@ peer_disconected(State, _PeerPid) ->
 
 %% helper
 
-do_recv(#chumak_pull{pending_recv={from, From}, pending_recv_multipart=nil}=State, From) ->
+do_recv(State, From) ->
   case queue:out(State#chumak_pull.recv_queue) of
       {{value, Multipart}, NewRecvQueue} ->
           Msg = binary:list_to_bin(Multipart),
