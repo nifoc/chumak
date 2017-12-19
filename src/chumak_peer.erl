@@ -238,12 +238,14 @@ terminate(_Reason, #state{socket=Socket}) ->
     ok.
 
 %% private methods
-send_data(Data, #state{socket = Socket} = State) ->
+send_data(Data, #state{socket=Socket} = State) ->
     case gen_tcp:send(Socket, Data) of
         ok ->
             ok;
         {error, Reason}->
             error_logger:warning_report([
+                                         {host, State#state.host},
+                                         {port, State#state.port},
                                          send_error,
                                          {error, Reason}
                                         ])

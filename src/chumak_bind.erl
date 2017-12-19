@@ -51,9 +51,15 @@ listener(ListenSocket, ParentPid) ->
         listener(ListenSocket, ParentPid)
     catch
         error:{badmatch, {error, closed}} ->
-            error_logger:info_report({bind_closed});
+            error_logger:info_report([
+                                      {listen_socket, ListenSocket},
+                                      {parent, ParentPid},
+                                      bind_closed
+                                     ]);
         error:{badmatch, Error} ->
             error_logger:error_report([
+                                       {listen_socket, ListenSocket},
+                                       {parent, ParentPid},
                                        accept_error,
                                        {error, Error}
                                       ]),
