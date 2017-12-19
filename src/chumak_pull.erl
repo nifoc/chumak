@@ -56,7 +56,8 @@ recv(#chumak_pull{pending_recv={from, From}, pending_recv_multipart=nil}=State, 
     do_recv(State, From);
 
 recv(State, _From) ->
-    {reply, {error, already_pending_recv_normal}, State}.
+    io:fwrite("~p~n",[State]),
+    {reply, {error, already_pending_recv}, State}.
 
 send_multipart(State, _Multipart, _From) ->
     {reply, {error, not_use}, State}.
@@ -68,7 +69,7 @@ recv_multipart(#chumak_pull{pending_recv=nil, pending_recv_multipart={from, From
     do_recv_multipart(State, From);
 
 recv_multipart(State, _From) ->
-    {reply, {error, already_pending_recv_multipart}, State}.
+    {reply, {error, already_pending_recv}, State}.
 
 peer_recv_message(State, _Message, _From) ->
     %% This function will never called, because use incoming_queue property
