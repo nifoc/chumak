@@ -241,16 +241,18 @@ terminate(_Reason, #state{socket=Socket}) ->
 send_data(Data, #state{socket=Socket} = State) ->
     case gen_tcp:send(Socket, Data) of
         ok ->
-            ok;
+            {noreply, State};
+        {error, Reason} when Reason =:= closed ->
+            handle_info({tcp_closed, undefined}, State);
         {error, Reason}->
             error_logger:warning_report([
                                          {host, State#state.host},
                                          {port, State#state.port},
                                          send_error,
                                          {error, Reason}
-                                        ])
-    end,
-    {noreply, State}.
+                                        ]),
+            {noreply, State}
+    end.
 
 try_connect(State) ->
   try_connect(1, State).
